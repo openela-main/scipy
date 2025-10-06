@@ -1,0 +1,28 @@
+From 28413806316049c09bb4b0182f652cce0ba82a50 Mon Sep 17 00:00:00 2001
+From: "Benjamin A. Beasley" <code@musicinmybrain.net>
+Date: Fri, 27 Oct 2023 16:47:37 -0400
+Subject: [PATCH] TST: Fix #19442 minimally
+
+Use a sorted version of the set REAL_DTYPES to parameterize
+test_b_orthonormalize.
+---
+ scipy/sparse/linalg/_eigen/lobpcg/tests/test_lobpcg.py | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/scipy/sparse/linalg/_eigen/lobpcg/tests/test_lobpcg.py b/scipy/sparse/linalg/_eigen/lobpcg/tests/test_lobpcg.py
+index c17d37051fca..fd6f166dc62d 100644
+--- a/scipy/sparse/linalg/_eigen/lobpcg/tests/test_lobpcg.py
++++ b/scipy/sparse/linalg/_eigen/lobpcg/tests/test_lobpcg.py
+@@ -101,9 +101,9 @@ def test_MikotaPair():
+ 
+ @pytest.mark.parametrize("n", [50])
+ @pytest.mark.parametrize("m", [1, 2, 10])
+-@pytest.mark.parametrize("Vdtype", REAL_DTYPES)
+-@pytest.mark.parametrize("Bdtype", REAL_DTYPES)
+-@pytest.mark.parametrize("BVdtype", REAL_DTYPES)
++@pytest.mark.parametrize("Vdtype", sorted(REAL_DTYPES, key=str))
++@pytest.mark.parametrize("Bdtype", sorted(REAL_DTYPES, key=str))
++@pytest.mark.parametrize("BVdtype", sorted(REAL_DTYPES, key=str))
+ def test_b_orthonormalize(n, m, Vdtype, Bdtype, BVdtype):
+     """Test B-orthonormalization by Cholesky with callable 'B'.
+     The function '_b_orthonormalize' is key in LOBPCG but may
