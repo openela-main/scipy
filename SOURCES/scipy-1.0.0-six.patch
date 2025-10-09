@@ -1,0 +1,1385 @@
+diff --git a/scipy/_lib/_version.py b/scipy/_lib/_version.py
+index 09b2494..bd6fa70 100644
+--- a/scipy/_lib/_version.py
++++ b/scipy/_lib/_version.py
+@@ -8,7 +8,7 @@ work; they don't recognize anything like alpha/beta/rc/dev versions.
+ 
+ import re
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ 
+ __all__ = ['NumpyVersion']
+diff --git a/scipy/_lib/six.py b/scipy/_lib/six.py
+deleted file mode 100644
+index 29d54e1..0000000
+--- a/scipy/_lib/six.py
++++ /dev/null
+@@ -1,276 +0,0 @@
+-"""Utilities for writing code that runs on Python 2 and 3"""
+-
+-# Copyright (c) 2010-2012 Benjamin Peterson
+-#
+-# Permission is hereby granted, free of charge, to any person obtaining a copy of
+-# this software and associated documentation files (the "Software"), to deal in
+-# the Software without restriction, including without limitation the rights to
+-# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+-# the Software, and to permit persons to whom the Software is furnished to do so,
+-# subject to the following conditions:
+-#
+-# The above copyright notice and this permission notice shall be included in all
+-# copies or substantial portions of the Software.
+-#
+-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+-# FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+-# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+-# IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+-# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-
+-import operator
+-import sys
+-import types
+-
+-__author__ = "Benjamin Peterson <benjamin@python.org>"
+-__version__ = "1.2.0"
+-
+-
+-# True if we are running on Python 3.
+-PY3 = sys.version_info[0] == 3
+-
+-if PY3:
+-    string_types = str,
+-    integer_types = int,
+-    class_types = type,
+-    text_type = str
+-    binary_type = bytes
+-
+-    MAXSIZE = sys.maxsize
+-else:
+-    string_types = basestring,
+-    integer_types = (int, long)
+-    class_types = (type, types.ClassType)
+-    text_type = unicode
+-    binary_type = str
+-
+-    if sys.platform.startswith("java"):
+-        # Jython always uses 32 bits.
+-        MAXSIZE = int((1 << 31) - 1)
+-    else:
+-        # It's possible to have sizeof(long) != sizeof(Py_ssize_t).
+-        class X(object):
+-            def __len__(self):
+-                return 1 << 31
+-        try:
+-            len(X())
+-        except OverflowError:
+-            # 32-bit
+-            MAXSIZE = int((1 << 31) - 1)
+-        else:
+-            # 64-bit
+-            MAXSIZE = int((1 << 63) - 1)
+-            del X
+-
+-
+-def _add_doc(func, doc):
+-    """Add documentation to a function."""
+-    func.__doc__ = doc
+-
+-
+-def _import_module(name):
+-    """Import module, returning the module after the last dot."""
+-    __import__(name)
+-    return sys.modules[name]
+-
+-
+-# Replacement for lazy loading stuff in upstream six.  See gh-2764
+-if PY3:
+-    import builtins
+-    import functools
+-    reduce = functools.reduce
+-    zip = builtins.zip
+-    xrange = builtins.range
+-else:
+-    import __builtin__
+-    import itertools
+-    builtins = __builtin__
+-    reduce = __builtin__.reduce
+-    zip = itertools.izip
+-    xrange = __builtin__.xrange
+-
+-
+-if PY3:
+-    _meth_func = "__func__"
+-    _meth_self = "__self__"
+-
+-    _func_code = "__code__"
+-    _func_defaults = "__defaults__"
+-
+-    _iterkeys = "keys"
+-    _itervalues = "values"
+-    _iteritems = "items"
+-else:
+-    _meth_func = "im_func"
+-    _meth_self = "im_self"
+-
+-    _func_code = "func_code"
+-    _func_defaults = "func_defaults"
+-
+-    _iterkeys = "iterkeys"
+-    _itervalues = "itervalues"
+-    _iteritems = "iteritems"
+-
+-
+-try:
+-    advance_iterator = next
+-except NameError:
+-    def advance_iterator(it):
+-        return it.next()
+-next = advance_iterator
+-
+-
+-if PY3:
+-    def get_unbound_function(unbound):
+-        return unbound
+-
+-    Iterator = object
+-
+-    def callable(obj):
+-        return any("__call__" in klass.__dict__ for klass in type(obj).__mro__)
+-else:
+-    def get_unbound_function(unbound):
+-        return unbound.im_func
+-
+-    class Iterator(object):
+-
+-        def next(self):
+-            return type(self).__next__(self)
+-
+-    callable = callable
+-_add_doc(get_unbound_function,
+-         """Get the function out of a possibly unbound function""")
+-
+-
+-get_method_function = operator.attrgetter(_meth_func)
+-get_method_self = operator.attrgetter(_meth_self)
+-get_function_code = operator.attrgetter(_func_code)
+-get_function_defaults = operator.attrgetter(_func_defaults)
+-
+-
+-def iterkeys(d):
+-    """Return an iterator over the keys of a dictionary."""
+-    return iter(getattr(d, _iterkeys)())
+-
+-
+-def itervalues(d):
+-    """Return an iterator over the values of a dictionary."""
+-    return iter(getattr(d, _itervalues)())
+-
+-
+-def iteritems(d):
+-    """Return an iterator over the (key, value) pairs of a dictionary."""
+-    return iter(getattr(d, _iteritems)())
+-
+-
+-if PY3:
+-    def b(s):
+-        return s.encode("latin-1")
+-
+-    def u(s):
+-        return s
+-
+-    if sys.version_info[1] <= 1:
+-        def int2byte(i):
+-            return bytes((i,))
+-    else:
+-        # This is about 2x faster than the implementation above on 3.2+
+-        int2byte = operator.methodcaller("to_bytes", 1, "big")
+-    import io
+-    StringIO = io.StringIO
+-    BytesIO = io.BytesIO
+-else:
+-    def b(s):
+-        return s
+-
+-    def u(s):
+-        return unicode(s, "unicode_escape")
+-    int2byte = chr
+-    import StringIO
+-    StringIO = BytesIO = StringIO.StringIO
+-_add_doc(b, """Byte literal""")
+-_add_doc(u, """Text literal""")
+-
+-
+-if PY3:
+-    import builtins
+-    exec_ = getattr(builtins, "exec")
+-
+-    def reraise(tp, value, tb=None):
+-        if value.__traceback__ is not tb:
+-            raise value.with_traceback(tb)
+-        raise value
+-
+-    print_ = getattr(builtins, "print")
+-    del builtins
+-
+-else:
+-    def exec_(code, globs=None, locs=None):
+-        """Execute code in a namespace."""
+-        if globs is None:
+-            frame = sys._getframe(1)
+-            globs = frame.f_globals
+-            if locs is None:
+-                locs = frame.f_locals
+-            del frame
+-        elif locs is None:
+-            locs = globs
+-        exec("""exec code in globs, locs""")
+-
+-    exec_("""def reraise(tp, value, tb=None):
+-    raise tp, value, tb
+-""")
+-
+-    def print_(*args, **kwargs):
+-        """The new-style print function."""
+-        fp = kwargs.pop("file", sys.stdout)
+-        if fp is None:
+-            return
+-
+-        def write(data):
+-            if not isinstance(data, basestring):
+-                data = str(data)
+-            fp.write(data)
+-        want_unicode = False
+-        sep = kwargs.pop("sep", None)
+-        if sep is not None:
+-            if isinstance(sep, unicode):
+-                want_unicode = True
+-            elif not isinstance(sep, str):
+-                raise TypeError("sep must be None or a string")
+-        end = kwargs.pop("end", None)
+-        if end is not None:
+-            if isinstance(end, unicode):
+-                want_unicode = True
+-            elif not isinstance(end, str):
+-                raise TypeError("end must be None or a string")
+-        if kwargs:
+-            raise TypeError("invalid keyword arguments to print()")
+-        if not want_unicode:
+-            for arg in args:
+-                if isinstance(arg, unicode):
+-                    want_unicode = True
+-                    break
+-        if want_unicode:
+-            newline = unicode("\n")
+-            space = unicode(" ")
+-        else:
+-            newline = "\n"
+-            space = " "
+-        if sep is None:
+-            sep = space
+-        if end is None:
+-            end = newline
+-        for i, arg in enumerate(args):
+-            if i:
+-                write(sep)
+-            write(arg)
+-        write(end)
+-
+-_add_doc(reraise, """Reraise an exception.""")
+-
+-
+-def with_metaclass(meta, base=object):
+-    """Create a base class with a metaclass."""
+-    return meta("NewBase", (base,), {})
+diff --git a/scipy/cluster/hierarchy.py b/scipy/cluster/hierarchy.py
+index 32b88f1..f386971 100644
+--- a/scipy/cluster/hierarchy.py
++++ b/scipy/cluster/hierarchy.py
+@@ -178,8 +178,8 @@ import numpy as np
+ from . import _hierarchy, _optimal_leaf_ordering
+ import scipy.spatial.distance as distance
+ 
+-from scipy._lib.six import string_types
+-from scipy._lib.six import xrange
++from six import string_types
++from six.moves import xrange
+ 
+ _LINKAGE_METHODS = {'single': 0, 'complete': 1, 'average': 2, 'centroid': 3,
+                     'median': 4, 'ward': 5, 'weighted': 6}
+diff --git a/scipy/cluster/tests/test_hierarchy.py b/scipy/cluster/tests/test_hierarchy.py
+index ab7d02a..bbe7850 100644
+--- a/scipy/cluster/tests/test_hierarchy.py
++++ b/scipy/cluster/tests/test_hierarchy.py
+@@ -38,7 +38,8 @@ from numpy.testing import assert_allclose, assert_equal, assert_, assert_warns
+ import pytest
+ from pytest import raises as assert_raises
+ 
+-from scipy._lib.six import xrange, u
++from six import u
++from six.moves import xrange
+ 
+ import scipy.cluster.hierarchy
+ from scipy.cluster.hierarchy import (
+diff --git a/scipy/cluster/vq.py b/scipy/cluster/vq.py
+index 3c707eb..78914ce 100644
+--- a/scipy/cluster/vq.py
++++ b/scipy/cluster/vq.py
+@@ -72,7 +72,7 @@ import warnings
+ import numpy as np
+ from collections import deque
+ from scipy._lib._util import _asarray_validated
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy.spatial.distance import cdist
+ 
+ from . import _vq
+diff --git a/scipy/integrate/quadrature.py b/scipy/integrate/quadrature.py
+index 188c6e7..ab1cc2c 100644
+--- a/scipy/integrate/quadrature.py
++++ b/scipy/integrate/quadrature.py
+@@ -9,7 +9,7 @@ import warnings
+ from numpy import trapz
+ from scipy.special import roots_legendre
+ from scipy.special import gammaln
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ __all__ = ['fixed_quad', 'quadrature', 'romberg', 'trapz', 'simps', 'romb',
+            'cumtrapz', 'newton_cotes']
+diff --git a/scipy/integrate/tests/test_integrate.py b/scipy/integrate/tests/test_integrate.py
+index e662234..38023f0 100644
+--- a/scipy/integrate/tests/test_integrate.py
++++ b/scipy/integrate/tests/test_integrate.py
+@@ -9,7 +9,7 @@ from numpy import (arange, zeros, array, dot, sqrt, cos, sin, eye, pi, exp,
+                    allclose)
+ 
+ from scipy._lib._numpy_compat import _assert_warns
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ from numpy.testing import (
+     assert_, assert_array_almost_equal,
+diff --git a/scipy/integrate/tests/test_quadpack.py b/scipy/integrate/tests/test_quadpack.py
+index 839de73..ebd5a64 100644
+--- a/scipy/integrate/tests/test_quadpack.py
++++ b/scipy/integrate/tests/test_quadpack.py
+@@ -10,7 +10,7 @@ import pytest
+ from pytest import raises as assert_raises
+ 
+ from scipy.integrate import quad, dblquad, tplquad, nquad
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy._lib._ccallback import LowLevelCallable
+ 
+ import ctypes
+diff --git a/scipy/interpolate/_cubic.py b/scipy/interpolate/_cubic.py
+index e5ddb76..373ab33 100644
+--- a/scipy/interpolate/_cubic.py
++++ b/scipy/interpolate/_cubic.py
+@@ -4,7 +4,7 @@ from __future__ import division, print_function, absolute_import
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from . import BPoly, PPoly
+ from .polyint import _isscalar
+diff --git a/scipy/interpolate/interpolate.py b/scipy/interpolate/interpolate.py
+index cc404c0..a0fc076 100644
+--- a/scipy/interpolate/interpolate.py
++++ b/scipy/interpolate/interpolate.py
+@@ -21,7 +21,8 @@ import scipy.linalg
+ import scipy.special as spec
+ from scipy.special import comb
+ 
+-from scipy._lib.six import xrange, integer_types, string_types
++from six import integer_types, string_types
++from six.moves import xrange
+ 
+ from . import fitpack
+ from . import dfitpack
+diff --git a/scipy/interpolate/polyint.py b/scipy/interpolate/polyint.py
+index 8e5f93b..be4ae27 100644
+--- a/scipy/interpolate/polyint.py
++++ b/scipy/interpolate/polyint.py
+@@ -5,7 +5,7 @@ import warnings
+ import numpy as np
+ from scipy.special import factorial
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy._lib._util import _asarray_validated
+ 
+ 
+diff --git a/scipy/interpolate/rbf.py b/scipy/interpolate/rbf.py
+index 7d2ce49..0cdaaef 100644
+--- a/scipy/interpolate/rbf.py
++++ b/scipy/interpolate/rbf.py
+@@ -48,7 +48,7 @@ import sys
+ import numpy as np
+ 
+ from scipy import linalg
+-from scipy._lib.six import callable, get_method_function, get_function_code
++from six import callable, get_method_function, get_function_code
+ from scipy.special import xlogy
+ 
+ __all__ = ['Rbf']
+diff --git a/scipy/interpolate/tests/test_interpolate.py b/scipy/interpolate/tests/test_interpolate.py
+index 19f5ad9..18fdfca 100644
+--- a/scipy/interpolate/tests/test_interpolate.py
++++ b/scipy/interpolate/tests/test_interpolate.py
+@@ -10,7 +10,7 @@ from pytest import raises as assert_raises
+ from numpy import mgrid, pi, sin, ogrid, poly1d, linspace
+ import numpy as np
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy._lib._numpy_compat import _assert_warns, suppress_warnings
+ 
+ from scipy.interpolate import (interp1d, interp2d, lagrange, PPoly, BPoly,
+diff --git a/scipy/interpolate/tests/test_polyint.py b/scipy/interpolate/tests/test_polyint.py
+index 758f198..841c776 100644
+--- a/scipy/interpolate/tests/test_polyint.py
++++ b/scipy/interpolate/tests/test_polyint.py
+@@ -15,7 +15,7 @@ from scipy.interpolate import (
+     approximate_taylor_polynomial, pchip, PchipInterpolator,
+     pchip_interpolate, Akima1DInterpolator, CubicSpline, make_interp_spline)
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ 
+ def check_shape(interpolator_cls, x_shape, y_shape, deriv_shape=None, axis=0,
+@@ -396,7 +396,7 @@ class TestPCHIP(object):
+         # http://nag.com/numeric/cl/nagdoc_cl25/html/e01/e01bec.html
+         # suggested in gh-5326 as a smoke test for the way the derivatives
+         # are computed (see also gh-3453)
+-        from scipy._lib.six import StringIO
++        from six import StringIO
+         dataStr = '''
+           7.99   0.00000E+0
+           8.09   0.27643E-4
+diff --git a/scipy/io/arff/arffread.py b/scipy/io/arff/arffread.py
+index d29c50e..41fff77 100644
+--- a/scipy/io/arff/arffread.py
++++ b/scipy/io/arff/arffread.py
+@@ -8,7 +8,7 @@ from functools import partial
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import next
++from six import next
+ 
+ """A module to read arff files."""
+ 
+diff --git a/scipy/io/harwell_boeing/hb.py b/scipy/io/harwell_boeing/hb.py
+index 17d505f..4d030f4 100644
+--- a/scipy/io/harwell_boeing/hb.py
++++ b/scipy/io/harwell_boeing/hb.py
+@@ -27,7 +27,7 @@ from scipy.sparse import csc_matrix
+ from scipy.io.harwell_boeing._fortran_format_parser import \
+         FortranFormatParser, IntFormat, ExpFormat
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ __all__ = ["MalformedHeader", "hb_read", "hb_write", "HBInfo", "HBFile",
+            "HBMatrixType"]
+diff --git a/scipy/io/matlab/mio.py b/scipy/io/matlab/mio.py
+index f81b777..51e9cb2 100644
+--- a/scipy/io/matlab/mio.py
++++ b/scipy/io/matlab/mio.py
+@@ -7,7 +7,7 @@ from __future__ import division, print_function, absolute_import
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from .miobase import get_matfile_version, docfiller
+ from .mio4 import MatFile4Reader, MatFile4Writer
+diff --git a/scipy/io/matlab/mio4.py b/scipy/io/matlab/mio4.py
+index 592ac8a..9ce867b 100644
+--- a/scipy/io/matlab/mio4.py
++++ b/scipy/io/matlab/mio4.py
+@@ -10,7 +10,7 @@ from numpy.compat import asbytes, asstr
+ 
+ import scipy.sparse
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from .miobase import (MatFileReader, docfiller, matdims, read_dtype,
+                       convert_dtypes, arr_to_chars, arr_dtype_number)
+diff --git a/scipy/io/matlab/mio5.py b/scipy/io/matlab/mio5.py
+index 0046cc2..7335ad9 100644
+--- a/scipy/io/matlab/mio5.py
++++ b/scipy/io/matlab/mio5.py
+@@ -86,7 +86,7 @@ from numpy.compat import asbytes, asstr
+ 
+ import scipy.sparse
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from .byteordercodes import native_code, swapped_code
+ 
+diff --git a/scipy/io/matlab/miobase.py b/scipy/io/matlab/miobase.py
+index d60ae63..4b79794 100644
+--- a/scipy/io/matlab/miobase.py
++++ b/scipy/io/matlab/miobase.py
+@@ -10,7 +10,7 @@ from __future__ import division, print_function, absolute_import
+ import sys
+ import operator
+ 
+-from scipy._lib.six import reduce
++from six.moves import reduce
+ 
+ import numpy as np
+ 
+diff --git a/scipy/io/matlab/tests/test_mio.py b/scipy/io/matlab/tests/test_mio.py
+index 1c1e269..0cea657 100644
+--- a/scipy/io/matlab/tests/test_mio.py
++++ b/scipy/io/matlab/tests/test_mio.py
+@@ -12,7 +12,7 @@ from glob import glob
+ from io import BytesIO
+ from tempfile import mkdtemp
+ 
+-from scipy._lib.six import u, text_type, string_types
++from six import u, text_type, string_types
+ 
+ import warnings
+ import shutil
+diff --git a/scipy/io/matlab/tests/test_mio5_utils.py b/scipy/io/matlab/tests/test_mio5_utils.py
+index 267ce18..23f8d56 100644
+--- a/scipy/io/matlab/tests/test_mio5_utils.py
++++ b/scipy/io/matlab/tests/test_mio5_utils.py
+@@ -13,7 +13,7 @@ import numpy as np
+ from numpy.testing import assert_array_equal, assert_equal, assert_
+ from pytest import raises as assert_raises
+ 
+-from scipy._lib.six import u
++from six import u
+ 
+ import scipy.io.matlab.byteordercodes as boc
+ import scipy.io.matlab.streams as streams
+diff --git a/scipy/io/mmio.py b/scipy/io/mmio.py
+index f4b2acd..0f3cb9f 100644
+--- a/scipy/io/mmio.py
++++ b/scipy/io/mmio.py
+@@ -20,7 +20,7 @@ from numpy import (asarray, real, imag, conj, zeros, ndarray, concatenate,
+                    fromstring, can_cast)
+ from numpy.compat import asbytes, asstr
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ from scipy.sparse import coo_matrix, isspmatrix
+ 
+ __all__ = ['mminfo', 'mmread', 'mmwrite', 'MMFile']
+diff --git a/scipy/io/netcdf.py b/scipy/io/netcdf.py
+index 5c6f0e5..5cfd136 100644
+--- a/scipy/io/netcdf.py
++++ b/scipy/io/netcdf.py
+@@ -49,7 +49,7 @@ from numpy import fromstring, dtype, empty, array, asarray
+ from numpy import little_endian as LITTLE_ENDIAN
+ from functools import reduce
+ 
+-from scipy._lib.six import integer_types, text_type, binary_type
++from six import integer_types, text_type, binary_type
+ 
+ ABSENT = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+ ZERO = b'\x00\x00\x00\x00'
+diff --git a/scipy/linalg/_decomp_qz.py b/scipy/linalg/_decomp_qz.py
+index 2d6dbf3..eb1b044 100644
+--- a/scipy/linalg/_decomp_qz.py
++++ b/scipy/linalg/_decomp_qz.py
+@@ -8,7 +8,7 @@ from numpy import asarray_chkfinite
+ from .misc import LinAlgError, _datacopied
+ from .lapack import get_lapack_funcs
+ 
+-from scipy._lib.six import callable
++from six import callable
+ 
+ __all__ = ['qz', 'ordqz']
+ 
+diff --git a/scipy/linalg/decomp.py b/scipy/linalg/decomp.py
+index 35e020c..2129736 100644
+--- a/scipy/linalg/decomp.py
++++ b/scipy/linalg/decomp.py
+@@ -22,9 +22,9 @@ import numpy
+ from numpy import (array, isfinite, inexact, nonzero, iscomplexobj, cast,
+                    flatnonzero, conj, asarray, argsort, empty)
+ # Local imports
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy._lib._util import _asarray_validated
+-from scipy._lib.six import string_types
++from six import string_types
+ from .misc import LinAlgError, _datacopied, norm
+ from .lapack import get_lapack_funcs, _compute_lwork
+ 
+diff --git a/scipy/linalg/decomp_schur.py b/scipy/linalg/decomp_schur.py
+index 59cf224..7b0879d 100644
+--- a/scipy/linalg/decomp_schur.py
++++ b/scipy/linalg/decomp_schur.py
+@@ -4,7 +4,7 @@ from __future__ import division, print_function, absolute_import
+ import numpy
+ from numpy import asarray_chkfinite, single, asarray
+ 
+-from scipy._lib.six import callable
++from six import callable
+ 
+ # Local imports.
+ from . import misc
+diff --git a/scipy/linalg/decomp_svd.py b/scipy/linalg/decomp_svd.py
+index cecf3c6..3efa257 100644
+--- a/scipy/linalg/decomp_svd.py
++++ b/scipy/linalg/decomp_svd.py
+@@ -8,7 +8,7 @@ from numpy import zeros, r_, diag, dot, arccos, arcsin, where, clip
+ from .misc import LinAlgError, _datacopied
+ from .lapack import get_lapack_funcs, _compute_lwork
+ from .decomp import _asarray_validated
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ __all__ = ['svd', 'svdvals', 'diagsvd', 'orth', 'subspace_angles']
+ 
+diff --git a/scipy/linalg/special_matrices.py b/scipy/linalg/special_matrices.py
+index 90788c5..0409cfd 100644
+--- a/scipy/linalg/special_matrices.py
++++ b/scipy/linalg/special_matrices.py
+@@ -2,8 +2,8 @@ from __future__ import division, print_function, absolute_import
+ 
+ import math
+ import numpy as np
+-from scipy._lib.six import xrange
+-from scipy._lib.six import string_types
++from six import string_types
++from six.moves import xrange
+ 
+ 
+ __all__ = ['tri', 'tril', 'triu', 'toeplitz', 'circulant', 'hankel',
+diff --git a/scipy/linalg/tests/test_decomp.py b/scipy/linalg/tests/test_decomp.py
+index 7a68778..7cd38e8 100644
+--- a/scipy/linalg/tests/test_decomp.py
++++ b/scipy/linalg/tests/test_decomp.py
+@@ -18,7 +18,7 @@ from numpy.testing import (assert_equal, assert_almost_equal,
+ import pytest
+ from pytest import raises as assert_raises
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ from scipy.linalg import (eig, eigvals, lu, svd, svdvals, cholesky, qr,
+      schur, rsf2csf, lu_solve, lu_factor, solve, diagsvd, hessenberg, rq,
+diff --git a/scipy/linalg/tests/test_fblas.py b/scipy/linalg/tests/test_fblas.py
+index 06c9552..945adf3 100644
+--- a/scipy/linalg/tests/test_fblas.py
++++ b/scipy/linalg/tests/test_fblas.py
+@@ -13,7 +13,7 @@ from numpy import float32, float64, complex64, complex128, arange, array, \
+ 
+ from scipy.linalg import _fblas as fblas
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ from numpy.testing import assert_array_equal, \
+     assert_allclose, assert_array_almost_equal, assert_
+diff --git a/scipy/linalg/tests/test_special_matrices.py b/scipy/linalg/tests/test_special_matrices.py
+index a1f5c57..b0218ac 100644
+--- a/scipy/linalg/tests/test_special_matrices.py
++++ b/scipy/linalg/tests/test_special_matrices.py
+@@ -8,7 +8,7 @@ from numpy.testing import (assert_equal, assert_array_equal,
+                            assert_array_almost_equal, assert_allclose)
+ from pytest import raises as assert_raises
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ from scipy import fftpack
+ from scipy.special import comb
+diff --git a/scipy/ndimage/_ni_support.py b/scipy/ndimage/_ni_support.py
+index e6f471c..1248de4 100644
+--- a/scipy/ndimage/_ni_support.py
++++ b/scipy/ndimage/_ni_support.py
+@@ -32,7 +32,7 @@ from __future__ import division, print_function, absolute_import
+ 
+ import numpy
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ 
+ def _extend_mode_to_code(mode):
+diff --git a/scipy/optimize/_differentialevolution.py b/scipy/optimize/_differentialevolution.py
+index afab47c..a203a53 100644
+--- a/scipy/optimize/_differentialevolution.py
++++ b/scipy/optimize/_differentialevolution.py
+@@ -7,7 +7,7 @@ import numpy as np
+ from scipy.optimize import OptimizeResult, minimize
+ from scipy.optimize.optimize import _status_message
+ from scipy._lib._util import check_random_state
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ import warnings
+ 
+ 
+diff --git a/scipy/optimize/_lsq/dogbox.py b/scipy/optimize/_lsq/dogbox.py
+index 05981ef..3e66da2 100644
+--- a/scipy/optimize/_lsq/dogbox.py
++++ b/scipy/optimize/_lsq/dogbox.py
+@@ -47,7 +47,7 @@ from numpy.linalg import lstsq, norm
+ 
+ from scipy.sparse.linalg import LinearOperator, aslinearoperator, lsmr
+ from scipy.optimize import OptimizeResult
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from .common import (
+     step_size_to_bound, in_bounds, update_tr_radius, evaluate_quadratic,
+diff --git a/scipy/optimize/_lsq/least_squares.py b/scipy/optimize/_lsq/least_squares.py
+index 06c833f..9b6b005 100644
+--- a/scipy/optimize/_lsq/least_squares.py
++++ b/scipy/optimize/_lsq/least_squares.py
+@@ -10,7 +10,7 @@ from scipy.sparse import issparse, csr_matrix
+ from scipy.sparse.linalg import LinearOperator
+ from scipy.optimize import _minpack, OptimizeResult
+ from scipy.optimize._numdiff import approx_derivative, group_columns
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from .trf import trf
+ from .dogbox import dogbox
+diff --git a/scipy/optimize/_lsq/trf.py b/scipy/optimize/_lsq/trf.py
+index 71570f4..c78d39b 100644
+--- a/scipy/optimize/_lsq/trf.py
++++ b/scipy/optimize/_lsq/trf.py
+@@ -100,7 +100,7 @@ from numpy.linalg import norm
+ from scipy.linalg import svd, qr
+ from scipy.sparse.linalg import LinearOperator, lsmr
+ from scipy.optimize import OptimizeResult
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from .common import (
+     step_size_to_bound, find_active_constraints, in_bounds,
+diff --git a/scipy/optimize/_minimize.py b/scipy/optimize/_minimize.py
+index 9016a97..47bbaaa 100644
+--- a/scipy/optimize/_minimize.py
++++ b/scipy/optimize/_minimize.py
+@@ -16,7 +16,7 @@ from warnings import warn
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import callable
++from six import callable
+ 
+ # unconstrained minimization
+ from .optimize import (_minimize_neldermead, _minimize_powell, _minimize_cg,
+diff --git a/scipy/optimize/_root.py b/scipy/optimize/_root.py
+index 05889a8..201829a 100644
+--- a/scipy/optimize/_root.py
++++ b/scipy/optimize/_root.py
+@@ -11,7 +11,7 @@ __all__ = ['root']
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import callable
++from six import callable
+ 
+ from warnings import warn
+ 
+diff --git a/scipy/optimize/cobyla.py b/scipy/optimize/cobyla.py
+index 25f29a6..fd4a0d0 100644
+--- a/scipy/optimize/cobyla.py
++++ b/scipy/optimize/cobyla.py
+@@ -13,7 +13,7 @@ Functions
+ from __future__ import division, print_function, absolute_import
+ 
+ import numpy as np
+-from scipy._lib.six import callable
++from six import callable
+ from scipy.optimize import _cobyla
+ from .optimize import OptimizeResult, _check_unknown_options
+ try:
+diff --git a/scipy/optimize/linesearch.py b/scipy/optimize/linesearch.py
+index dc4b0f9..325038d 100644
+--- a/scipy/optimize/linesearch.py
++++ b/scipy/optimize/linesearch.py
+@@ -17,7 +17,7 @@ from warnings import warn
+ 
+ from scipy.optimize import minpack2
+ import numpy as np
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ __all__ = ['LineSearchWarning', 'line_search_wolfe1', 'line_search_wolfe2',
+            'scalar_search_wolfe1', 'scalar_search_wolfe2',
+diff --git a/scipy/optimize/nonlin.py b/scipy/optimize/nonlin.py
+index a43bb62..35bd37e 100644
+--- a/scipy/optimize/nonlin.py
++++ b/scipy/optimize/nonlin.py
+@@ -111,7 +111,8 @@ from __future__ import division, print_function, absolute_import
+ 
+ import sys
+ import numpy as np
+-from scipy._lib.six import callable, exec_, xrange
++from six import callable, exec_
++from six.moves import xrange
+ from scipy.linalg import norm, solve, inv, qr, svd, LinAlgError
+ from numpy import asarray, dot, vdot
+ import scipy.sparse.linalg
+diff --git a/scipy/optimize/optimize.py b/scipy/optimize/optimize.py
+index 6674acf..226d5b2 100644
+--- a/scipy/optimize/optimize.py
++++ b/scipy/optimize/optimize.py
+@@ -30,7 +30,8 @@ __docformat__ = "restructuredtext en"
+ import warnings
+ import sys
+ import numpy
+-from scipy._lib.six import callable, xrange
++from six import callable
++from six.moves import xrange
+ from numpy import (atleast_1d, eye, mgrid, argmin, zeros, shape, squeeze,
+                    vectorize, asarray, sqrt, Inf, asfarray, isinf)
+ import numpy as np
+diff --git a/scipy/optimize/tests/test_nonlin.py b/scipy/optimize/tests/test_nonlin.py
+index 3c9f337..911c852 100644
+--- a/scipy/optimize/tests/test_nonlin.py
++++ b/scipy/optimize/tests/test_nonlin.py
+@@ -7,7 +7,7 @@ from __future__ import division, print_function, absolute_import
+ from numpy.testing import assert_
+ import pytest
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy.optimize import nonlin, root
+ from numpy import matrix, diag, dot
+ from numpy.linalg import inv
+diff --git a/scipy/signal/_peak_finding.py b/scipy/signal/_peak_finding.py
+index 18690f2..e113dba 100644
+--- a/scipy/signal/_peak_finding.py
++++ b/scipy/signal/_peak_finding.py
+@@ -5,7 +5,7 @@ from __future__ import division, print_function, absolute_import
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy.signal.wavelets import cwt, ricker
+ from scipy.stats import scoreatpercentile
+ 
+diff --git a/scipy/signal/bsplines.py b/scipy/signal/bsplines.py
+index 19c1b0f..9f05d56 100644
+--- a/scipy/signal/bsplines.py
++++ b/scipy/signal/bsplines.py
+@@ -1,6 +1,6 @@
+ from __future__ import division, print_function, absolute_import
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from numpy import (logical_and, asarray, pi, zeros_like,
+                    piecewise, array, arctan2, tan, zeros, arange, floor)
+ from numpy.core.umath import (sqrt, exp, greater, less, cos, add, sin,
+diff --git a/scipy/signal/fir_filter_design.py b/scipy/signal/fir_filter_design.py
+index 5a57b71..99f955d 100644
+--- a/scipy/signal/fir_filter_design.py
++++ b/scipy/signal/fir_filter_design.py
+@@ -9,7 +9,7 @@ import numpy as np
+ from numpy.fft import irfft, fft, ifft
+ from scipy.special import sinc
+ from scipy.linalg import toeplitz, hankel, pinv
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ from . import sigtools
+ 
+diff --git a/scipy/signal/ltisys.py b/scipy/signal/ltisys.py
+index 4c31d80..8d103cc 100644
+--- a/scipy/signal/ltisys.py
++++ b/scipy/signal/ltisys.py
+@@ -29,7 +29,7 @@ import warnings
+ from scipy.linalg import qr as s_qr
+ from scipy import integrate, interpolate, linalg
+ from scipy.interpolate import interp1d
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from .filter_design import (tf2zpk, zpk2tf, normalize, freqs, freqz, freqs_zpk,
+                             freqz_zpk)
+ from .lti_conversion import (tf2ss, abcd_normalize, ss2tf, zpk2ss, ss2zpk,
+diff --git a/scipy/signal/signaltools.py b/scipy/signal/signaltools.py
+index 370df6c..9b177e8 100644
+--- a/scipy/signal/signaltools.py
++++ b/scipy/signal/signaltools.py
+@@ -10,7 +10,7 @@ import timeit
+ 
+ from . import sigtools, dlti
+ from ._upfirdn import upfirdn, _output_len
+-from scipy._lib.six import callable
++from six import callable
+ from scipy._lib._version import NumpyVersion
+ from scipy import fftpack, linalg
+ from numpy import (allclose, angle, arange, argsort, array, asarray,
+diff --git a/scipy/signal/spectral.py b/scipy/signal/spectral.py
+index d8febf3..3e10af3 100644
+--- a/scipy/signal/spectral.py
++++ b/scipy/signal/spectral.py
+@@ -11,7 +11,7 @@ from ._spectral import _lombscargle
+ from ._arraytools import const_ext, even_ext, odd_ext, zero_ext
+ import warnings
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ __all__ = ['periodogram', 'welch', 'lombscargle', 'csd', 'coherence',
+            'spectrogram', 'stft', 'istft', 'check_COLA']
+diff --git a/scipy/signal/tests/test_peak_finding.py b/scipy/signal/tests/test_peak_finding.py
+index bca2ee6..cb51c31 100644
+--- a/scipy/signal/tests/test_peak_finding.py
++++ b/scipy/signal/tests/test_peak_finding.py
+@@ -7,7 +7,7 @@ from numpy.testing import (assert_equal,
+     assert_array_equal, assert_)
+ from scipy.signal._peak_finding import (argrelmax, argrelmin,
+     find_peaks_cwt, _identify_ridge_lines)
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ 
+ def _gen_gaussians(center_locs, sigmas, total_length):
+diff --git a/scipy/signal/tests/test_wavelets.py b/scipy/signal/tests/test_wavelets.py
+index 4f5dd6c..b94b54b 100644
+--- a/scipy/signal/tests/test_wavelets.py
++++ b/scipy/signal/tests/test_wavelets.py
+@@ -3,7 +3,7 @@ from __future__ import division, print_function, absolute_import
+ import numpy as np
+ from numpy.testing import assert_equal, \
+     assert_array_equal, assert_array_almost_equal, assert_array_less, assert_
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ from scipy.signal import wavelets
+ 
+diff --git a/scipy/signal/waveforms.py b/scipy/signal/waveforms.py
+index b9a4eac..79368a9 100644
+--- a/scipy/signal/waveforms.py
++++ b/scipy/signal/waveforms.py
+@@ -10,7 +10,7 @@ import numpy as np
+ from numpy import asarray, zeros, place, nan, mod, pi, extract, log, sqrt, \
+     exp, cos, sin, polyval, polyint
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ 
+ __all__ = ['sawtooth', 'square', 'gausspulse', 'chirp', 'sweep_poly',
+diff --git a/scipy/signal/windows.py b/scipy/signal/windows.py
+index 21488d7..cafe0ec 100644
+--- a/scipy/signal/windows.py
++++ b/scipy/signal/windows.py
+@@ -5,7 +5,7 @@ import warnings
+ 
+ import numpy as np
+ from scipy import fftpack, linalg, special
+-from scipy._lib.six import string_types
++from six import string_types
+ 
+ __all__ = ['boxcar', 'triang', 'parzen', 'bohman', 'blackman', 'nuttall',
+            'blackmanharris', 'flattop', 'bartlett', 'hanning', 'barthann',
+diff --git a/scipy/sparse/base.py b/scipy/sparse/base.py
+index e16c412..db331e4 100644
+--- a/scipy/sparse/base.py
++++ b/scipy/sparse/base.py
+@@ -5,7 +5,7 @@ import sys
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy._lib._numpy_compat import broadcast_to
+ from .sputils import (isdense, isscalarlike, isintlike,
+                       get_sum_dtype, validateaxis)
+diff --git a/scipy/sparse/compressed.py b/scipy/sparse/compressed.py
+index fcd8f89..e9bc61e 100644
+--- a/scipy/sparse/compressed.py
++++ b/scipy/sparse/compressed.py
+@@ -7,7 +7,7 @@ from warnings import warn
+ import operator
+ 
+ import numpy as np
+-from scipy._lib.six import zip as izip
++from six.moves import zip as izip
+ from scipy._lib._util import _prune_array
+ 
+ from .base import spmatrix, isspmatrix, SparseEfficiencyWarning
+diff --git a/scipy/sparse/construct.py b/scipy/sparse/construct.py
+index b6d7887..3e11840 100644
+--- a/scipy/sparse/construct.py
++++ b/scipy/sparse/construct.py
+@@ -10,7 +10,7 @@ __all__ = ['spdiags', 'eye', 'identity', 'kron', 'kronsum',
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ from .sputils import upcast, get_index_dtype, isscalarlike
+ 
+diff --git a/scipy/sparse/coo.py b/scipy/sparse/coo.py
+index 2b05b58..281c0ab 100644
+--- a/scipy/sparse/coo.py
++++ b/scipy/sparse/coo.py
+@@ -9,7 +9,7 @@ from warnings import warn
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import zip as izip
++from six.moves import zip as izip
+ 
+ from ._sparsetools import coo_tocsr, coo_todense, coo_matvec
+ from .base import isspmatrix, SparseEfficiencyWarning, spmatrix
+diff --git a/scipy/sparse/csr.py b/scipy/sparse/csr.py
+index 4ec6337..d67969c 100644
+--- a/scipy/sparse/csr.py
++++ b/scipy/sparse/csr.py
+@@ -8,7 +8,7 @@ __all__ = ['csr_matrix', 'isspmatrix_csr']
+ 
+ 
+ import numpy as np
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ from .base import spmatrix
+ 
+diff --git a/scipy/sparse/dok.py b/scipy/sparse/dok.py
+index e97c85e..1d6db8e 100644
+--- a/scipy/sparse/dok.py
++++ b/scipy/sparse/dok.py
+@@ -12,7 +12,8 @@ import itertools
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import zip as izip, xrange, iteritems, iterkeys, itervalues
++from six import iteritems, iterkeys, itervalues
++from six.moves import zip as izip, xrange
+ 
+ from .base import spmatrix, isspmatrix
+ from .sputils import (isdense, getdtype, isshape, isintlike, isscalarlike,
+diff --git a/scipy/sparse/lil.py b/scipy/sparse/lil.py
+index 95f823f..9453d9d 100644
+--- a/scipy/sparse/lil.py
++++ b/scipy/sparse/lil.py
+@@ -9,7 +9,7 @@ __all__ = ['lil_matrix','isspmatrix_lil']
+ 
+ import numpy as np
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from .base import spmatrix, isspmatrix
+ from .sputils import (getdtype, isshape, isscalarlike, IndexMixin,
+                       upcast_scalar, get_index_dtype, isintlike)
+diff --git a/scipy/sparse/linalg/eigen/lobpcg/lobpcg.py b/scipy/sparse/linalg/eigen/lobpcg/lobpcg.py
+index 43bbe77..d7154f0 100644
+--- a/scipy/sparse/linalg/eigen/lobpcg/lobpcg.py
++++ b/scipy/sparse/linalg/eigen/lobpcg/lobpcg.py
+@@ -16,7 +16,7 @@ import sys
+ 
+ import numpy as np
+ from numpy.testing import assert_allclose
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy.linalg import inv, eigh, cho_factor, cho_solve, cholesky
+ from scipy.sparse.linalg import aslinearoperator, LinearOperator
+ 
+diff --git a/scipy/sparse/linalg/isolve/_gcrotmk.py b/scipy/sparse/linalg/isolve/_gcrotmk.py
+index 7e50427..58d9a67 100644
+--- a/scipy/sparse/linalg/isolve/_gcrotmk.py
++++ b/scipy/sparse/linalg/isolve/_gcrotmk.py
+@@ -5,7 +5,7 @@ from __future__ import division, print_function, absolute_import
+ 
+ import numpy as np
+ from numpy.linalg import LinAlgError
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy.linalg import (get_blas_funcs, qr, solve, svd, qr_insert, lstsq)
+ from scipy.sparse.linalg.isolve.utils import make_system
+ 
+diff --git a/scipy/sparse/linalg/isolve/lgmres.py b/scipy/sparse/linalg/isolve/lgmres.py
+index ac0eda0..4ee2cd4 100644
+--- a/scipy/sparse/linalg/isolve/lgmres.py
++++ b/scipy/sparse/linalg/isolve/lgmres.py
+@@ -5,7 +5,7 @@ from __future__ import division, print_function, absolute_import
+ 
+ import numpy as np
+ from numpy.linalg import LinAlgError
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy.linalg import get_blas_funcs, get_lapack_funcs
+ from .utils import make_system
+ 
+diff --git a/scipy/sparse/linalg/isolve/tests/test_lsqr.py b/scipy/sparse/linalg/isolve/tests/test_lsqr.py
+index 61a929f..b0a23b5 100644
+--- a/scipy/sparse/linalg/isolve/tests/test_lsqr.py
++++ b/scipy/sparse/linalg/isolve/tests/test_lsqr.py
+@@ -3,7 +3,7 @@ from __future__ import division, print_function, absolute_import
+ import numpy as np
+ from numpy.testing import (assert_, assert_equal, assert_almost_equal,
+                            assert_array_almost_equal)
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ import scipy.sparse
+ import scipy.sparse.linalg
+diff --git a/scipy/sparse/tests/test_base.py b/scipy/sparse/tests/test_base.py
+index 5d76f16..7439e07 100644
+--- a/scipy/sparse/tests/test_base.py
++++ b/scipy/sparse/tests/test_base.py
+@@ -24,7 +24,7 @@ import contextlib
+ import functools
+ 
+ import numpy as np
+-from scipy._lib.six import xrange, zip as izip
++from six.moves import xrange, zip as izip
+ from numpy import (arange, zeros, array, dot, matrix, asmatrix, asarray,
+                    vstack, ndarray, transpose, diag, kron, inf, conjugate,
+                    int8, ComplexWarning)
+diff --git a/scipy/spatial/distance.py b/scipy/spatial/distance.py
+index b4dfe4c..235a089 100644
+--- a/scipy/spatial/distance.py
++++ b/scipy/spatial/distance.py
+@@ -114,8 +114,8 @@ import numpy as np
+ 
+ from functools import partial
+ from collections import namedtuple
+-from scipy._lib.six import callable, string_types
+-from scipy._lib.six import xrange
++from six import callable, string_types
++from six.moves import xrange
+ 
+ from . import _distance_wrap
+ from . import _hausdorff
+diff --git a/scipy/spatial/tests/test_distance.py b/scipy/spatial/tests/test_distance.py
+index 14dabeb..1af93bb 100644
+--- a/scipy/spatial/tests/test_distance.py
++++ b/scipy/spatial/tests/test_distance.py
+@@ -37,7 +37,8 @@ from __future__ import division, print_function, absolute_import
+ import os.path
+ 
+ from functools import wraps, partial
+-from scipy._lib.six import xrange, u
++from six import u
++from six.moves import xrange
+ 
+ import numpy as np
+ import warnings
+diff --git a/scipy/spatial/tests/test_qhull.py b/scipy/spatial/tests/test_qhull.py
+index 1f49205..099a907 100644
+--- a/scipy/spatial/tests/test_qhull.py
++++ b/scipy/spatial/tests/test_qhull.py
+@@ -8,7 +8,7 @@ from numpy.testing import (assert_equal, assert_almost_equal,
+                            assert_, assert_allclose, assert_array_equal)
+ import pytest
+ from pytest import raises as assert_raises
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ 
+ import scipy.spatial.qhull as qhull
+ from scipy.spatial import cKDTree as KDTree
+diff --git a/scipy/special/_mptestutils.py b/scipy/special/_mptestutils.py
+index 0e49eb4..6d52712 100644
+--- a/scipy/special/_mptestutils.py
++++ b/scipy/special/_mptestutils.py
+@@ -8,7 +8,7 @@ import numpy as np
+ from numpy.testing import assert_
+ import pytest
+ 
+-from scipy._lib.six import reraise
++from six import reraise
+ from scipy.special._testutils import assert_func_equal
+ 
+ try:
+diff --git a/scipy/special/basic.py b/scipy/special/basic.py
+index 4c4827f..7b3e12e 100644
+--- a/scipy/special/basic.py
++++ b/scipy/special/basic.py
+@@ -7,7 +7,7 @@ from __future__ import division, print_function, absolute_import
+ import operator
+ import numpy as np
+ import math
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from numpy import (pi, asarray, floor, isscalar, iscomplex, real,
+                    imag, sqrt, where, mgrid, sin, place, issubdtype,
+                    extract, less, inexact, nan, zeros, sinc)
+diff --git a/scipy/special/tests/test_cdflib.py b/scipy/special/tests/test_cdflib.py
+index ed272cc..7f8f0c5 100644
+--- a/scipy/special/tests/test_cdflib.py
++++ b/scipy/special/tests/test_cdflib.py
+@@ -28,7 +28,7 @@ from numpy.testing import assert_equal
+ import pytest
+ 
+ import scipy.special as sp
+-from scipy._lib.six import with_metaclass
++from six import with_metaclass
+ from scipy.special._testutils import (
+     MissingModule, check_version, FuncData)
+ from scipy.special._mptestutils import (
+diff --git a/scipy/special/tests/test_mpmath.py b/scipy/special/tests/test_mpmath.py
+index 3cbc9d7..4cdc1b3 100644
+--- a/scipy/special/tests/test_mpmath.py
++++ b/scipy/special/tests/test_mpmath.py
+@@ -12,7 +12,7 @@ import pytest
+ from distutils.version import LooseVersion
+ 
+ import scipy.special as sc
+-from scipy._lib.six import with_metaclass
++from six import with_metaclass
+ from scipy.special._testutils import (
+     MissingModule, check_version, FuncData,
+     assert_func_equal)
+diff --git a/scipy/special/tests/test_orthogonal.py b/scipy/special/tests/test_orthogonal.py
+index 8464932..4b6369b 100644
+--- a/scipy/special/tests/test_orthogonal.py
++++ b/scipy/special/tests/test_orthogonal.py
+@@ -6,7 +6,7 @@ from numpy.testing import (assert_array_almost_equal, assert_equal,
+                            assert_almost_equal, assert_allclose)
+ from pytest import raises as assert_raises
+ 
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from scipy import integrate
+ import scipy.special as sc
+ from scipy.special import gamma
+diff --git a/scipy/stats/_binned_statistic.py b/scipy/stats/_binned_statistic.py
+index 48c8f68..90f6775 100644
+--- a/scipy/stats/_binned_statistic.py
++++ b/scipy/stats/_binned_statistic.py
+@@ -1,7 +1,8 @@
+ from __future__ import division, print_function, absolute_import
+ 
+ import numpy as np
+-from scipy._lib.six import callable, xrange
++from six import callable
++from six.moves import xrange
+ from scipy._lib._numpy_compat import suppress_warnings
+ from collections import namedtuple
+ 
+diff --git a/scipy/stats/_distn_infrastructure.py b/scipy/stats/_distn_infrastructure.py
+index 0e396b7..8fcd260 100644
+--- a/scipy/stats/_distn_infrastructure.py
++++ b/scipy/stats/_distn_infrastructure.py
+@@ -4,7 +4,7 @@
+ #
+ from __future__ import division, print_function, absolute_import
+ 
+-from scipy._lib.six import string_types, exec_, PY3
++from six import string_types, exec_, PY3
+ from scipy._lib._util import getargspec_no_self as _getargspec
+ 
+ import sys
+diff --git a/scipy/stats/kde.py b/scipy/stats/kde.py
+index 9d63e67..6b36701 100644
+--- a/scipy/stats/kde.py
++++ b/scipy/stats/kde.py
+@@ -23,7 +23,7 @@ from __future__ import division, print_function, absolute_import
+ import warnings
+ 
+ # Scipy imports.
+-from scipy._lib.six import callable, string_types
++from six import callable, string_types
+ from scipy import linalg, special
+ from scipy.special import logsumexp
+ 
+diff --git a/scipy/stats/morestats.py b/scipy/stats/morestats.py
+index 926c436..319a2a6 100644
+--- a/scipy/stats/morestats.py
++++ b/scipy/stats/morestats.py
+@@ -11,7 +11,7 @@ from numpy import (isscalar, r_, log, around, unique, asarray,
+                    pi, exp, ravel, count_nonzero, sin, cos, arctan2, hypot)
+ from numpy.testing.decorators import setastest
+ 
+-from scipy._lib.six import string_types
++from six import string_types
+ from scipy import optimize
+ from scipy import special
+ from . import statlib
+diff --git a/scipy/stats/mstats_basic.py b/scipy/stats/mstats_basic.py
+index 2eddc1b..1b21c88 100644
+--- a/scipy/stats/mstats_basic.py
++++ b/scipy/stats/mstats_basic.py
+@@ -38,7 +38,7 @@ from numpy import ndarray
+ import numpy.ma as ma
+ from numpy.ma import masked, nomask
+ 
+-from scipy._lib.six import iteritems
++from six import iteritems
+ 
+ import itertools
+ import warnings
+diff --git a/scipy/stats/stats.py b/scipy/stats/stats.py
+index 2e77c21..34c1d7d 100644
+--- a/scipy/stats/stats.py
++++ b/scipy/stats/stats.py
+@@ -164,7 +164,7 @@ from collections import namedtuple
+ import numpy as np
+ from numpy import array, asarray, ma, zeros
+ 
+-from scipy._lib.six import callable, string_types
++from six import callable, string_types
+ from scipy._lib._version import NumpyVersion
+ import scipy.special as special
+ import scipy.linalg as linalg
+diff --git a/scipy/stats/tests/test_binned_statistic.py b/scipy/stats/tests/test_binned_statistic.py
+index 2b42a37..68f63a1 100644
+--- a/scipy/stats/tests/test_binned_statistic.py
++++ b/scipy/stats/tests/test_binned_statistic.py
+@@ -5,7 +5,7 @@ from numpy.testing import assert_allclose
+ from scipy.stats import (binned_statistic, binned_statistic_2d,
+                          binned_statistic_dd)
+ 
+-from scipy._lib.six import u
++from six import u
+ from .common_tests import check_named_results
+ 
+ 
+diff --git a/scipy/stats/tests/test_discrete_basic.py b/scipy/stats/tests/test_discrete_basic.py
+index 9a63a99..453a361 100644
+--- a/scipy/stats/tests/test_discrete_basic.py
++++ b/scipy/stats/tests/test_discrete_basic.py
+@@ -2,7 +2,7 @@ from __future__ import division, print_function, absolute_import
+ 
+ import numpy.testing as npt
+ import numpy as np
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ import pytest
+ 
+ from scipy import stats
+diff --git a/scipy/stats/tests/test_stats.py b/scipy/stats/tests/test_stats.py
+index 2766c29..02881a6 100644
+--- a/scipy/stats/tests/test_stats.py
++++ b/scipy/stats/tests/test_stats.py
+@@ -28,7 +28,7 @@ import scipy.stats as stats
+ import scipy.stats.mstats as mstats
+ import scipy.stats.mstats_basic as mstats_basic
+ from scipy._lib._version import NumpyVersion
+-from scipy._lib.six import xrange
++from six.moves import xrange
+ from .common_tests import check_named_results
+ 
+ """ Numbers in docstrings beginning with 'W' refer to the section numbers
+diff --git a/tools/authors.py b/tools/authors.py
+index 52b065b..9f02933 100755
+--- a/tools/authors.py
++++ b/tools/authors.py
+@@ -21,7 +21,7 @@ import io
+ import subprocess
+ 
+ try:
+-    from scipy._lib.six import PY3
++    from six import PY3
+ except ImportError:
+     sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                     os.pardir, 'scipy', 'lib'))
