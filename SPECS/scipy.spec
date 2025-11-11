@@ -15,7 +15,7 @@
 Summary:    Scientific Tools for Python
 Name:       scipy
 Version:    1.9.3
-Release:    1%{?dist}
+Release:    2%{?dist}
 
 # BSD -- whole package except:
 # Boost -- scipy/special/cephes/scipy_iv.c
@@ -23,6 +23,7 @@ Release:    1%{?dist}
 License:    BSD and Boost and Public Domain
 Url:        http://www.scipy.org/scipylib/index.html
 Source0:    https://github.com/scipy/scipy/releases/download/v%{version}/scipy-%{version}.tar.gz
+Patch:      19909.patch
 
 BuildRequires: fftw-devel, suitesparse-devel
 BuildRequires: %{blaslib}-devel
@@ -183,6 +184,10 @@ popd
 %endif
 
 %changelog
+* Wed Apr 09 2025 Pavel Simovec <psimovec@redhat.com> - 1.9.3-2
+- Apply upstream patch: MAINT:linalg:Adjust lwork/liwork changes OpenBLAS 0.3.26
+- Resolves: RHEL-70908
+
 * Mon Oct 07 2024 Pavel Simovec <psimovec@redhat.com> - 1.9.3-1
 - Update to 1.9.3
 - Resolves: RHEL-5600
